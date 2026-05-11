@@ -8,12 +8,9 @@
         /* --- GLOBAL STYLES --- */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1e272e;
-            color: white;
-            margin: 0; padding: 0;
-            display: flex; height: 100vh; width: 100vw;
-            overflow: hidden;
-            user-select: none; /* Prevents text selection while playing */
+            background-color: #1e272e; color: white;
+            margin: 0; padding: 0; display: flex; height: 100vh; width: 100vw;
+            overflow: hidden; user-select: none; 
         }
 
         /* --- SIDEBAR NAVIGATION --- */
@@ -66,18 +63,33 @@
 
         .crate-box { background-color: #d35400; padding: 30px; border-radius: 15px; text-align: center; width: 300px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
 
-        /* --- GAME CANVAS --- */
+        /* --- GAME CANVAS & UI --- */
         #game-container {
             display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background-color: #2d3436; z-index: 100;
         }
         canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
         
-        #game-ui {
-            position: absolute; top: 20px; left: 20px; z-index: 101; pointer-events: none;
-        }
+        #game-ui { position: absolute; top: 20px; left: 20px; z-index: 101; pointer-events: none; width: calc(100% - 40px); height: calc(100% - 40px); }
         #game-ui h2 { margin: 0; color: #fff; text-shadow: 2px 2px 0 #000; }
         
+        /* ABILITY BAR */
+        #ability-bar {
+            position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 20px;
+        }
+        .ability-box {
+            width: 90px; height: 90px; background-color: rgba(44, 62, 80, 0.8);
+            border: 3px solid #7f8c8d; border-radius: 10px; display: flex;
+            flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; transition: border-color 0.2s;
+        }
+        .ability-box.ready { border-color: #2ecc71; background-color: rgba(39, 174, 96, 0.4); }
+        .ab-key { font-size: 12px; color: #bdc3c7; margin-bottom: 2px; }
+        .ab-name { font-size: 14px; font-weight: bold; color: white; margin-bottom: 5px; text-shadow: 1px 1px 0 #000; }
+        .ab-cd { font-size: 22px; font-weight: bold; color: #e74c3c; text-shadow: 2px 2px 0 #000; }
+        .ab-cd.ready { color: #f1c40f; }
+
         #game-over-screen {
             display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background-color: rgba(0,0,0,0.9); padding: 40px; border-radius: 15px; text-align: center; z-index: 102;
@@ -137,9 +149,31 @@
 
     <div id="game-container">
         <div id="game-ui">
-            <h2 id="game-hp">HP: 100</h2>
-            <h2 id="game-score">Score: 0.0</h2>
-            <p style="color: white; font-weight: bold; text-shadow: 1px 1px 0 #000;">WASD to move | Left Click to Attack | Keys 1, 2, 3 for Abilities</p>
+            <div style="display: flex; justify-content: space-between;">
+                <div>
+                    <h2 id="game-hp">HP: 100</h2>
+                    <h2 id="game-score">Score: 0.0</h2>
+                </div>
+                <p style="color: white; font-weight: bold; text-shadow: 1px 1px 0 #000; text-align: right;">WASD to move<br>Left Click to Attack<br>Keys 1, 2, 3 for Abilities</p>
+            </div>
+            
+            <div id="ability-bar">
+                <div class="ability-box" id="ab-box-1">
+                    <div class="ab-key">[ 1 ]</div>
+                    <div class="ab-name" id="ab-name-1">Ability 1</div>
+                    <div class="ab-cd" id="ab-cd-1">0s</div>
+                </div>
+                <div class="ability-box" id="ab-box-2">
+                    <div class="ab-key">[ 2 ]</div>
+                    <div class="ab-name" id="ab-name-2">Ability 2</div>
+                    <div class="ab-cd" id="ab-cd-2">0s</div>
+                </div>
+                <div class="ability-box" id="ab-box-3">
+                    <div class="ab-key">[ 3 ]</div>
+                    <div class="ab-name" id="ab-name-3">Ability 3</div>
+                    <div class="ab-cd" id="ab-cd-3">0s</div>
+                </div>
+            </div>
         </div>
         <canvas id="gameCanvas"></canvas>
         
@@ -155,11 +189,32 @@
         // ==========================================
         // 1. GAME DATA & STATE
         // ==========================================
+        // Note: Cooldowns in "maxCd" are in frames (60 frames = 1 second)
         const CREATURE_DB = [
-            { id: "emberfox", name: "Emberfox", color: "#e74c3c", element: "Fire", desc: "Abilities:\n- Scratch\n- Ember\n- Quick Attack" },
-            { id: "aquashell", name: "Aquashell", color: "#3498db", element: "Water", desc: "Abilities:\n- Tackle\n- Water Gun\n- Shell Shield" },
-            // Notice: Roost changed to Roots per your instructions
-            { id: "leafwing", name: "Leafwing", color: "#2ecc71", element: "Grass", desc: "Abilities:\n- Peck (Key 3)\n- Razor Leaf (Key 1)\n- Roots (Key 2)" }
+            { 
+                id: "emberfox", name: "Emberfox", color: "#e74c3c", element: "Fire", desc: "Abilities:\n- Scratch\n- Ember\n- Quick Attack",
+                abilities: [
+                    { name: "Scratch", maxCd: 300 },      // 5 seconds
+                    { name: "Ember", maxCd: 420 },        // 7 seconds
+                    { name: "Quick Attack", maxCd: 600 }  // 10 seconds
+                ]
+            },
+            { 
+                id: "aquashell", name: "Aquashell", color: "#3498db", element: "Water", desc: "Abilities:\n- Tackle\n- Water Gun\n- Shell Shield",
+                abilities: [
+                    { name: "Tackle", maxCd: 420 },       // 7 seconds
+                    { name: "Water Gun", maxCd: 600 },    // 10 seconds
+                    { name: "Shell Shield", maxCd: 1200 } // 20 seconds
+                ]
+            },
+            { 
+                id: "leafwing", name: "Leafwing", color: "#2ecc71", element: "Grass", desc: "Abilities:\n- Razor Leaf\n- Roots\n- Peck",
+                abilities: [
+                    { name: "Razor Leaf", maxCd: 420 },   // 7 seconds
+                    { name: "Roots", maxCd: 900 },        // 15 seconds
+                    { name: "Peck", maxCd: 600 }          // 10 seconds
+                ]
+            }
         ];
 
         const SAVE_KEY = "monsterDuel_saveData";
@@ -218,7 +273,7 @@
                     sq.onclick = () => {
                         selectedPveCreature = c.id;
                         document.getElementById('start-pve-btn').disabled = false;
-                        renderInventory(containerId, true); // re-render to update selection style
+                        renderInventory(containerId, true);
                     };
                 }
                 grid.appendChild(sq);
@@ -249,7 +304,7 @@
             } else {
                 alert(`Duplicate ${rand.name}!`);
             }
-            playerData.nextCrateTime = Date.now() + (10 * 1000); // Set to 10 seconds for testing! Change to 300000 for 5 mins
+            playerData.nextCrateTime = Date.now() + (10 * 1000); // 10 seconds for testing
             saveData();
         };
 
@@ -264,32 +319,34 @@
         let keys = { w:false, a:false, s:false, d:false };
         let mouse = { x: 0, y: 0 };
         
-        // Game Entities
         let player = {};
         let projectiles = [];
         let enemies = [];
         let particles = [];
-        
-        // Game Stats
         let score = 0;
-        let spawnRate = 100; // frames between spawns
+        let spawnRate = 100;
         let frameCount = 0;
+        let activeCreatureData = null;
 
         function startPvE() {
             document.getElementById('game-container').style.display = 'block';
             document.getElementById('game-over-screen').style.display = 'none';
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
             
-            const pData = CREATURE_DB.find(c => c.id === selectedPveCreature);
+            activeCreatureData = CREATURE_DB.find(c => c.id === selectedPveCreature);
 
             player = {
                 x: canvas.width / 2, y: canvas.height / 2,
-                size: 25, // 5 "pixels" scaled up
-                color: pData.color,
-                hp: 100, speed: 4, type: pData.id,
-                cooldowns: { attack: 0, a1: 0, a2: 0, a3: 0 }
+                size: 25, color: activeCreatureData.color,
+                hp: 100, speed: 4, type: activeCreatureData.id,
+                cooldowns: { attack: 0, a1: 0, a2: 0, a3: 0 },
+                dashTimer: 0, dashVx: 0, dashVy: 0, shieldTimer: 0
             };
+
+            // Setup UI Abilities
+            for(let i = 1; i <= 3; i++) {
+                document.getElementById(`ab-name-${i}`).innerText = activeCreatureData.abilities[i-1].name;
+            }
 
             projectiles = []; enemies = []; particles = [];
             score = 0; frameCount = 0; spawnRate = 100;
@@ -302,21 +359,17 @@
         function exitGame() {
             gameActive = false;
             document.getElementById('game-container').style.display = 'none';
-            // Calc and add coins
-            let coinsEarned = Math.floor(score);
-            playerData.cilcoins += coinsEarned;
-            saveData();
-            updateCurrencyUI();
+            playerData.cilcoins += Math.floor(score);
+            saveData(); updateCurrencyUI();
         }
 
         // --- INPUTS ---
         window.addEventListener('keydown', e => {
             if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
-            // Abilities
             if(gameActive) {
-                if(e.key === '1' && player.cooldowns.a1 <= 0) useAbility1();
-                if(e.key === '2' && player.cooldowns.a2 <= 0) useAbility2();
-                if(e.key === '3' && player.cooldowns.a3 <= 0) useAbility3();
+                if(e.key === '1' && player.cooldowns.a1 <= 0) triggerAbility(1);
+                if(e.key === '2' && player.cooldowns.a2 <= 0) triggerAbility(2);
+                if(e.key === '3' && player.cooldowns.a3 <= 0) triggerAbility(3);
             }
         });
         window.addEventListener('keyup', e => {
@@ -325,8 +378,7 @@
         canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
         canvas.addEventListener('mousedown', e => {
             if(gameActive && e.button === 0 && player.cooldowns.attack <= 0) {
-                basicAttack();
-                player.cooldowns.attack = 20; // attack cooldown
+                basicAttack(); player.cooldowns.attack = 20;
             }
         });
 
@@ -339,50 +391,76 @@
             });
         }
 
-        function useAbility1() { // Razor Leaf
-            if(player.type !== 'leafwing') return;
-            player.cooldowns.a1 = 120;
+        function triggerAbility(slot) {
+            const abilityDef = activeCreatureData.abilities[slot-1];
+            player.cooldowns['a'+slot] = abilityDef.maxCd;
             const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
-            projectiles.push({ // Big Green Circle
-                x: player.x, y: player.y, vx: Math.cos(angle)*12, vy: Math.sin(angle)*12,
-                radius: 20, color: '#2ecc71', dmg: 5, life: 100, pierce: true
-            });
-        }
 
-        function useAbility2() { // Roots (Stun 10 enemies)
-            if(player.type !== 'leafwing') return;
-            player.cooldowns.a2 = 300; // 5 sec CD
-            let stunned = 0;
-            // Sort enemies by distance
-            enemies.sort((a,b) => Math.hypot(player.x-a.x, player.y-a.y) - Math.hypot(player.x-b.x, player.y-b.y));
-            for(let e of enemies) {
-                if(stunned >= 10) break;
-                e.stunTimer = 300; // Stun for 5 seconds (60fps * 5)
-                stunned++;
-                // Visual effect
-                particles.push({x: e.x, y: e.y, radius: e.radius+5, color: '#8e44ad', life: 30});
+            // --- LEAFWING ---
+            if(player.type === 'leafwing') {
+                if(slot === 1) { // Razor Leaf (Big green pierce)
+                    projectiles.push({ x: player.x, y: player.y, vx: Math.cos(angle)*12, vy: Math.sin(angle)*12, radius: 20, color: '#2ecc71', dmg: 5, life: 100, pierce: true });
+                }
+                if(slot === 2) { // Roots (Stun)
+                    let stunned = 0;
+                    enemies.sort((a,b) => Math.hypot(player.x-a.x, player.y-a.y) - Math.hypot(player.x-b.x, player.y-b.y));
+                    for(let e of enemies) {
+                        if(stunned >= 10) break;
+                        e.stunTimer = 300; stunned++;
+                        particles.push({x: e.x, y: e.y, radius: e.radius+5, color: '#8e44ad', life: 30});
+                    }
+                }
+                if(slot === 3) { // Peck (Slam to mouse)
+                    player.x = mouse.x; player.y = mouse.y;
+                    projectiles.push({ x: player.x, y: player.y, vx: 0, vy: 0, radius: 100, color: 'rgba(46, 204, 113, 0.5)', dmg: 10, life: 10, aoe: true });
+                }
             }
-        }
 
-        function useAbility3() { // Peck (Slam)
-            if(player.type !== 'leafwing') return;
-            player.cooldowns.a3 = 240;
-            // Jump to mouse, create shockwave
-            player.x = mouse.x; player.y = mouse.y;
-            projectiles.push({
-                x: player.x, y: player.y, vx: 0, vy: 0, radius: 100, color: 'rgba(46, 204, 113, 0.5)',
-                dmg: 10, life: 10, aoe: true
-            });
+            // --- EMBERFOX ---
+            if(player.type === 'emberfox') {
+                if(slot === 1) { // Scratch (3 short range spread shots)
+                    for(let i = -1; i <= 1; i++) {
+                        let offsetAng = angle + (i * 0.3);
+                        projectiles.push({ x: player.x, y: player.y, vx: Math.cos(offsetAng)*15, vy: Math.sin(offsetAng)*15, radius: 8, color: '#e67e22', dmg: 3, life: 15 });
+                    }
+                }
+                if(slot === 2) { // Ember (Huge piercing fireball)
+                    projectiles.push({ x: player.x, y: player.y, vx: Math.cos(angle)*10, vy: Math.sin(angle)*10, radius: 25, color: '#c0392b', dmg: 10, life: 150, pierce: true });
+                }
+                if(slot === 3) { // Quick Attack (Dash)
+                    player.dashTimer = 15;
+                    player.dashVx = Math.cos(angle) * 20;
+                    player.dashVy = Math.sin(angle) * 20;
+                }
+            }
+
+            // --- AQUASHELL ---
+            if(player.type === 'aquashell') {
+                if(slot === 1) { // Tackle (Short Dash)
+                    player.dashTimer = 10;
+                    player.dashVx = Math.cos(angle) * 15;
+                    player.dashVy = Math.sin(angle) * 15;
+                }
+                if(slot === 2) { // Water Gun (Burst spread)
+                    for(let i = -2; i <= 2; i++) {
+                        let offsetAng = angle + (i * 0.15);
+                        projectiles.push({ x: player.x, y: player.y, vx: Math.cos(offsetAng)*12, vy: Math.sin(offsetAng)*12, radius: 6, color: '#3498db', dmg: 2, life: 60 });
+                    }
+                }
+                if(slot === 3) { // Shell Shield (Invulnerability)
+                    player.shieldTimer = 300; // 5 seconds
+                }
+            }
         }
 
         // --- ENEMY SPAWNER ---
         function spawnEnemy() {
             let edge = Math.floor(Math.random() * 4);
             let ex, ey;
-            if(edge===0) { ex = Math.random()*canvas.width; ey = -30; } // top
-            else if(edge===1) { ex = canvas.width+30; ey = Math.random()*canvas.height; } // right
-            else if(edge===2) { ex = Math.random()*canvas.width; ey = canvas.height+30; } // bottom
-            else { ex = -30; ey = Math.random()*canvas.height; } // left
+            if(edge===0) { ex = Math.random()*canvas.width; ey = -30; } 
+            else if(edge===1) { ex = canvas.width+30; ey = Math.random()*canvas.height; } 
+            else if(edge===2) { ex = Math.random()*canvas.width; ey = canvas.height+30; } 
+            else { ex = -30; ey = Math.random()*canvas.height; }
 
             const rand = Math.random();
             let type = { color: '#00ffff', hp: 1, speed: 2, dmg: 10 }; // Cyan
@@ -398,22 +476,38 @@
             ctx.fillStyle = '#2d3436';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Cooldowns
+            // Cooldown Management
             if(player.cooldowns.attack > 0) player.cooldowns.attack--;
-            if(player.cooldowns.a1 > 0) player.cooldowns.a1--;
-            if(player.cooldowns.a2 > 0) player.cooldowns.a2--;
-            if(player.cooldowns.a3 > 0) player.cooldowns.a3--;
+            for(let i=1; i<=3; i++) {
+                if(player.cooldowns['a'+i] > 0) player.cooldowns['a'+i]--;
+            }
+            if(player.shieldTimer > 0) player.shieldTimer--;
 
             // Move Player
-            if(keys.w && player.y > 0) player.y -= player.speed;
-            if(keys.s && player.y < canvas.height) player.y += player.speed;
-            if(keys.a && player.x > 0) player.x -= player.speed;
-            if(keys.d && player.x < canvas.width) player.x += player.speed;
+            if(player.dashTimer > 0) {
+                player.dashTimer--;
+                player.x += player.dashVx; player.y += player.dashVy;
+                // Dash does damage
+                projectiles.push({ x: player.x, y: player.y, vx: 0, vy: 0, radius: player.size, color: 'transparent', dmg: 2, life: 1, aoe: true });
+                particles.push({x: player.x, y: player.y, radius: player.size/2, color: 'white', life: 10});
+            } else {
+                if(keys.w && player.y > 0) player.y -= player.speed;
+                if(keys.s && player.y < canvas.height) player.y += player.speed;
+                if(keys.a && player.x > 0) player.x -= player.speed;
+                if(keys.d && player.x < canvas.width) player.x += player.speed;
+            }
 
-            // Draw Player (5x5 Pixel design representation)
+            // Draw Player
             ctx.fillStyle = player.color;
             ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
-            // Draw a little 'eye' to show direction (facing mouse)
+            
+            // Draw Shield Aura
+            if(player.shieldTimer > 0) {
+                ctx.strokeStyle = '#3498db'; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.stroke();
+            }
+
+            // Draw eye direction
             ctx.fillStyle = 'white';
             const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
             ctx.fillRect(player.x + Math.cos(angle)*10 - 2, player.y + Math.sin(angle)*10 - 2, 4, 4);
@@ -422,7 +516,7 @@
             frameCount++;
             if(frameCount % spawnRate === 0) {
                 spawnEnemy();
-                if(spawnRate > 30) spawnRate--; // gets harder
+                if(spawnRate > 30) spawnRate--; 
             }
 
             // Projectiles
@@ -430,24 +524,19 @@
                 let p = projectiles[i];
                 p.x += p.vx; p.y += p.vy; p.life--;
                 
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
-                ctx.fillStyle = p.color; ctx.fill();
+                if(p.color !== 'transparent') {
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+                    ctx.fillStyle = p.color; ctx.fill();
+                }
 
                 if(p.life <= 0) { projectiles.splice(i, 1); continue; }
 
-                // Hit detection
                 for(let j = enemies.length - 1; j >= 0; j--) {
                     let e = enemies[j];
                     let dist = Math.hypot(p.x - e.x, p.y - e.y);
                     if(dist < p.radius + e.radius) {
                         e.hp -= p.dmg;
-                        if(!p.pierce && !p.aoe) projectiles.splice(i, 1);
-                        if(e.hp <= 0) {
-                            score += 0.5;
-                            enemies.splice(j, 1);
-                            updateGameUI();
-                        }
-                        break; // one hit per frame for normal projectiles
+                        if(!p.pierce && !p.aoe) { projectiles.splice(i, 1); break; } // Break inner loop if projectile destroyed
                     }
                 }
             }
@@ -456,11 +545,13 @@
             for(let i = enemies.length - 1; i >= 0; i--) {
                 let e = enemies[i];
                 
-                // Move towards player if not stunned
+                if(e.hp <= 0) {
+                    score += 0.5; enemies.splice(i, 1); continue;
+                }
+
                 if(e.stunTimer > 0) {
                     e.stunTimer--;
-                    ctx.strokeStyle = '#8e44ad'; // Stun visual
-                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = '#8e44ad'; ctx.lineWidth = 3;
                     ctx.beginPath(); ctx.arc(e.x, e.y, e.radius+5, 0, Math.PI*2); ctx.stroke();
                 } else {
                     const ang = Math.atan2(player.y - e.y, player.x - e.x);
@@ -468,23 +559,14 @@
                     e.y += Math.sin(ang) * e.speed;
                 }
 
-                // Draw Half-Circle Slime
-                ctx.beginPath();
-                // Flat bottom faces down
-                ctx.arc(e.x, e.y, e.radius, Math.PI, 0); 
+                ctx.beginPath(); ctx.arc(e.x, e.y, e.radius, Math.PI, 0); 
                 ctx.fillStyle = e.color; ctx.fill();
 
-                // Player Collision
                 let dist = Math.hypot(player.x - e.x, player.y - e.y);
                 if(dist < player.size/2 + e.radius) {
-                    player.hp -= e.dmg;
-                    enemies.splice(i, 1); // Slime dies on hit
-                    updateGameUI();
-                    
-                    if(player.hp <= 0) {
-                        gameOver();
-                        return; // Stop loop
-                    }
+                    if(player.shieldTimer <= 0) player.hp -= e.dmg;
+                    enemies.splice(i, 1);
+                    if(player.hp <= 0) { gameOver(); return; }
                 }
             }
 
@@ -497,12 +579,28 @@
                 if(pt.life <= 0) particles.splice(i, 1);
             }
 
+            updateGameUI();
             animationId = requestAnimationFrame(loop);
         }
 
         function updateGameUI() {
             document.getElementById('game-hp').innerText = `HP: ${player.hp}`;
             document.getElementById('game-score').innerText = `Score: ${score.toFixed(1)}`;
+
+            // Update Ability Cooldown UI
+            for(let i=1; i<=3; i++) {
+                const cdFrames = player.cooldowns['a'+i];
+                const box = document.getElementById(`ab-box-${i}`);
+                const cdText = document.getElementById(`ab-cd-${i}`);
+                
+                if(cdFrames > 0) {
+                    box.classList.remove('ready'); cdText.classList.remove('ready');
+                    cdText.innerText = Math.ceil(cdFrames / 60) + "s";
+                } else {
+                    box.classList.add('ready'); cdText.classList.add('ready');
+                    cdText.innerText = "READY";
+                }
+            }
         }
 
         function gameOver() {
@@ -512,7 +610,6 @@
             document.getElementById('game-over-screen').style.display = 'block';
         }
 
-        // Init
         loadData();
     </script>
 </body>
