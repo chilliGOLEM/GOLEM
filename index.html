@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monster Duel Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2c3e50;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+        }
+        .container {
+            background-color: #34495e;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            width: 300px;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: none;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #e74c3c;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #c0392b;
+        }
+        #lobby-screen {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="auth-screen">
+        <h2>Monster Duel</h2>
+        <p>Login or create an account to battle!</p>
+        <input type="text" id="usernameInput" placeholder="Enter your username">
+        <input type="password" id="passwordInput" placeholder="Enter your password">
+        <button id="loginBtn">Login</button>
+        <button id="registerBtn" style="background-color: #3498db;">Register</button>
+        <p id="errorMessage" style="color: #ffcccc; font-size: 14px;"></p>
+    </div>
+
+    <div class="container" id="lobby-screen">
+        <h2>Lobby</h2>
+        <p>Welcome back, <br><strong id="usernameDisplay"></strong>!</p>
+        <hr style="border-color: #7f8c8d;">
+        <button id="battleBtn" style="background-color: #2ecc71;">Enter Arena (Coming Soon)</button>
+        <button id="logoutBtn">Logout</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } 
+        from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // YOUR FIREBASE CONFIGURATION (Still needs your actual keys)
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Get UI Elements
+        const authScreen = document.getElementById('auth-screen');
+        const lobbyScreen = document.getElementById('lobby-screen');
+        const usernameInput = document.getElementById('usernameInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const errorMsg = document.getElementById('errorMessage');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+
+        // Helper function to turn username into a fake email
+        const getFakeEmail = (username) => {
+            // Remove spaces and make lowercase just to be safe
+            const cleanUsername = username.replace(/\s+/g, '').toLowerCase();
+            return `${cleanUsername}@monsterduel.local`;
+        };
+
+        // Register
+        document.getElementById('registerBtn').addEventListener('click', () => {
+            if (!usernameInput.value) {
+                errorMsg.innerText = "Please enter a username.";
+                return;
+            }
+            const fakeEmail = getFakeEmail(usernameInput.value);
+            const password = passwordInput.value;
+            createUserWithEmailAndPassword(auth, fakeEmail, password)
+                .catch((error) => { errorMsg.innerText = "Error: Password must be at least 6 characters, or username is taken."; });
+        });
+
+        // Login
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            if (!usernameInput.value) {
+                errorMsg.innerText = "Please enter a username.";
+                return;
+            }
+            const fakeEmail = getFakeEmail(usernameInput.value);
+            const password = passwordInput.value;
+            signInWithEmailAndPassword(auth, fakeEmail, password)
+                .catch((error) => { errorMsg.innerText = "Invalid username or password."; });
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        // Traffic Cop
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                authScreen.style.display = 'none';
+                lobbyScreen.style.display = 'block';
+                // Extract just the username part to show the player
+                const displayObj = user.email.split('@')[0];
+                usernameDisplay.innerText = displayObj;
+            } else {
+                authScreen.style.display = 'block';
+                lobbyScreen.style.display = 'none';
+                usernameInput.value = '';
+                passwordInput.value = '';
+                errorMsg.innerText = '';
+            }
+        });
+    </script>
+</body>
+</html>
