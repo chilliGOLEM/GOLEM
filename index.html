@@ -39,60 +39,35 @@
             font-weight: bold;
             cursor: pointer;
         }
-        button:hover {
-            background-color: #c0392b;
-        }
-        button:disabled {
-            background-color: #7f8c8d;
-            cursor: not-allowed;
-        }
-        /* Screens */
-        #lobby-screen, #inventory-screen {
-            display: none;
-        }
-        /* Inventory Specifics */
+        button:hover { background-color: #c0392b; }
+        button:disabled { background-color: #7f8c8d; cursor: not-allowed; }
+        #lobby-screen, #inventory-screen, #loading-screen { display: none; }
         .creature-card {
-            background-color: #2c3e50;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 5px;
-            cursor: pointer;
-            border: 1px solid #7f8c8d;
+            background-color: #2c3e50; padding: 10px; margin: 5px 0;
+            border-radius: 5px; cursor: pointer; border: 1px solid #7f8c8d;
         }
-        .creature-card:hover {
-            background-color: #1abc9c;
-        }
-        .crate-section {
-            background-color: #f39c12;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            color: #fff;
-        }
-        /* Modal for Creature Details */
+        .creature-card:hover { background-color: #1abc9c; }
+        .crate-section { background-color: #f39c12; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
         #details-modal {
-            display: none;
-            position: fixed;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: #ecf0f1;
-            color: #2c3e50;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5);
-            z-index: 100;
-            width: 250px;
+            display: none; position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); background-color: #ecf0f1;
+            color: #2c3e50; padding: 20px; border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5); z-index: 100; width: 250px;
         }
     </style>
 </head>
 <body>
 
+    <div id="loading-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:999; color:white; padding-top:20vh;">
+        <h2>Connecting to Server...</h2>
+    </div>
+
     <div class="container" id="auth-screen">
         <h2>Monster Duel</h2>
-        <input type="text" id="usernameInput" placeholder="Enter your username">
-        <input type="password" id="passwordInput" placeholder="Enter your password">
-        <button id="loginBtn">Login</button>
-        <button id="registerBtn" style="background-color: #3498db;">Register</button>
+        <p id="auth-instruction">Enter credentials to play.</p>
+        <input type="text" id="usernameInput" placeholder="username:">
+        <input type="password" id="passwordInput" placeholder="password:">
+        <button id="enterBtn">ENTER</button>
         <p id="errorMessage" style="color: #ffcccc; font-size: 14px;"></p>
     </div>
 
@@ -100,193 +75,215 @@
         <h2>Lobby</h2>
         <p>Welcome, <strong id="usernameDisplay"></strong>!</p>
         <hr style="border-color: #7f8c8d;">
-        <button id="navInventoryBtn" style="background-color: #9b59b6;">My Inventory & Crates</button>
+        <button id="navInventoryBtn" style="background-color: #9b59b6;">My Inventory</button>
         <button id="battleBtn" style="background-color: #2ecc71;">Enter Arena (Coming Soon)</button>
         <button id="logoutBtn">Logout</button>
     </div>
 
     <div class="container" id="inventory-screen">
         <h2>Inventory</h2>
-        
         <div class="crate-section">
             <h3>Supply Crate</h3>
-            <p style="font-size: 12px;">Contains a random creature!</p>
             <button id="openCrateBtn">Open Crate!</button>
         </div>
-
         <h3>My Creatures</h3>
-        <div id="creature-list">
-            </div>
-
+        <div id="creature-list"></div>
         <button id="navLobbyBtn" style="background-color: #7f8c8d; margin-top: 20px;">Back to Lobby</button>
     </div>
 
     <div id="details-modal">
         <h3 id="modalName">Name</h3>
         <p><strong>Element:</strong> <span id="modalElement"></span></p>
-        <p id="modalDesc" style="font-size: 14px;">Description goes here.</p>
+        <p id="modalDesc" style="font-size: 14px;"></p>
         <button id="closeModalBtn" style="background-color: #e74c3c;">Close</button>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } 
-        from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    <script>
+        // ==========================================
+        // 1. CLOUD DATABASE SETUP (JSONBin.io)
+        // ==========================================
+        const JSONBIN_URL = "https://api.jsonbin.io/v3/b/YOUR_BIN_ID"; 
+        const JSONBIN_KEY = "YOUR_API_KEY"; 
 
-        // FIREBASE CONFIG
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID"
-        };
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-
-        // --- GAME DATA ---
+        // ==========================================
+        // 2. GAME DATA
+        // ==========================================
         const CREATURE_DB = [
-            { id: "emberfox", name: "Emberfox", element: "Fire", desc: "A nimble fox with a fiery tail. Abilities: Scratch, Ember, Quick Attack." },
-            { id: "aquashell", name: "Aquashell", element: "Water", desc: "A sturdy turtle with a hydro-cannon shell. Abilities: Tackle, Water Gun, Shell Shield." },
-            { id: "leafwing", name: "Leafwing", element: "Grass", desc: "A tiny bird with razor-sharp leaf feathers. Abilities: Peck, Razor Leaf, Roost." }
+            { id: "emberfox", name: "Emberfox", element: "Fire", desc: "Abilities: Scratch, Ember, Quick Attack." },
+            { id: "aquashell", name: "Aquashell", element: "Water", desc: "Abilities: Tackle, Water Gun, Shell Shield." },
+            { id: "leafwing", name: "Leafwing", element: "Grass", desc: "Abilities: Peck, Razor Leaf, Roost." }
         ];
 
         let currentUserStr = "";
         let playerData = { unlocked: [], nextCrateTime: 0 };
+        let cloudDatabase = {}; // Stores all users from the cloud
 
-        // --- UI ELEMENTS ---
         const screens = {
             auth: document.getElementById('auth-screen'),
             lobby: document.getElementById('lobby-screen'),
-            inventory: document.getElementById('inventory-screen')
+            inventory: document.getElementById('inventory-screen'),
+            loading: document.getElementById('loading-screen')
         };
-        const openCrateBtn = document.getElementById('openCrateBtn');
-        const creatureList = document.getElementById('creature-list');
-        const detailsModal = document.getElementById('details-modal');
+        const errorMessage = document.getElementById('errorMessage');
+        const lockedUser = localStorage.getItem('locked_browser_user');
 
-        // --- GAME LOGIC ---
+        // ==========================================
+        // 3. CLOUD SYNC FUNCTIONS
+        // ==========================================
+        async function fetchCloudData() {
+            screens.loading.style.display = 'block';
+            try {
+                const req = await fetch(JSONBIN_URL, {
+                    headers: { 'X-Master-Key': JSONBIN_KEY }
+                });
+                const res = await req.json();
+                cloudDatabase = res.record;
+            } catch (err) {
+                errorMessage.innerText = "Failed to connect to server.";
+            }
+            screens.loading.style.display = 'none';
+        }
 
-        // Load & Save Data to Browser LocalStorage
-        function loadPlayerData() {
-            const saved = localStorage.getItem(`duelData_${currentUserStr}`);
-            if (saved) {
-                playerData = JSON.parse(saved);
+        async function updateCloudData() {
+            screens.loading.style.display = 'block';
+            await fetch(JSONBIN_URL, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_KEY },
+                body: JSON.stringify(cloudDatabase)
+            });
+            screens.loading.style.display = 'none';
+        }
+
+        // ==========================================
+        // 4. AUTH & LOCK LOGIC
+        // ==========================================
+        if (lockedUser) {
+            document.getElementById('usernameInput').value = lockedUser;
+            document.getElementById('usernameInput').style.display = 'none';
+            document.getElementById('auth-instruction').innerText = `Locked to: ${lockedUser}`;
+        }
+
+        document.getElementById('enterBtn').addEventListener('click', async () => {
+            const user = document.getElementById('usernameInput').value.trim();
+            const pass = document.getElementById('passwordInput').value;
+
+            if (!user || !pass) return errorMessage.innerText = "Enter all fields.";
+
+            await fetchCloudData(); // Get latest accounts from cloud
+
+            // Check if user exists in cloud
+            if (cloudDatabase[user]) {
+                if (cloudDatabase[user].password !== pass) {
+                    return errorMessage.innerText = "Wrong password.";
+                }
+                // Check Lock
+                if (lockedUser && lockedUser !== user) {
+                    return errorMessage.innerText = "This browser is locked to another account.";
+                }
             } else {
-                playerData = { unlocked: [], nextCrateTime: 0 };
+                // User doesn't exist. Create them if browser isn't locked to someone else
+                if (lockedUser && lockedUser !== user) {
+                    return errorMessage.innerText = "This browser is locked. You cannot create a new account here.";
+                }
+                // Create new account in cloud
+                cloudDatabase[user] = {
+                    password: pass,
+                    data: { unlocked: [], nextCrateTime: 0 }
+                };
+                await updateCloudData();
             }
+
+            // Lock this browser permanently to this user
+            if (!lockedUser) localStorage.setItem('locked_browser_user', user);
+
+            // Log them in
+            currentUserStr = user;
+            playerData = cloudDatabase[user].data;
+            document.getElementById('usernameDisplay').innerText = user;
             renderInventory();
+            switchScreen('lobby');
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            currentUserStr = "";
+            document.getElementById('passwordInput').value = "";
+            switchScreen('auth');
+        });
+
+        // ==========================================
+        // 5. INVENTORY & CRATE LOGIC
+        // ==========================================
+        async function savePlayerProgress() {
+            cloudDatabase[currentUserStr].data = playerData;
+            await updateCloudData(); // Saves to cloud so you can see it on your phone
         }
 
-        function savePlayerData() {
-            localStorage.setItem(`duelData_${currentUserStr}`, JSON.stringify(playerData));
-        }
-
-        // Render Inventory List
         function renderInventory() {
-            creatureList.innerHTML = ""; // clear current list
+            const list = document.getElementById('creature-list');
+            list.innerHTML = "";
             if (playerData.unlocked.length === 0) {
-                creatureList.innerHTML = "<p style='font-size:14px; color:#bdc3c7;'>You have no creatures yet. Open a crate!</p>";
-                return;
+                list.innerHTML = "<p>No creatures yet.</p>"; return;
             }
-
-            playerData.unlocked.forEach(creatureId => {
-                const creature = CREATURE_DB.find(c => c.id === creatureId);
-                if (creature) {
-                    const card = document.createElement('div');
-                    card.className = 'creature-card';
-                    card.innerText = creature.name;
-                    card.onclick = () => showCreatureDetails(creature);
-                    creatureList.appendChild(card);
+            playerData.unlocked.forEach(id => {
+                const c = CREATURE_DB.find(x => x.id === id);
+                if (c) {
+                    const div = document.createElement('div');
+                    div.className = 'creature-card';
+                    div.innerText = c.name;
+                    div.onclick = () => {
+                        document.getElementById('modalName').innerText = c.name;
+                        document.getElementById('modalElement').innerText = c.element;
+                        document.getElementById('modalDesc').innerText = c.desc;
+                        document.getElementById('details-modal').style.display = 'block';
+                    };
+                    list.appendChild(div);
                 }
             });
         }
 
-        // Show/Hide Details Modal
-        function showCreatureDetails(creature) {
-            document.getElementById('modalName').innerText = creature.name;
-            document.getElementById('modalElement').innerText = creature.element;
-            document.getElementById('modalDesc').innerText = creature.desc;
-            detailsModal.style.display = 'block';
-        }
-        document.getElementById('closeModalBtn').onclick = () => detailsModal.style.display = 'none';
+        document.getElementById('closeModalBtn').onclick = () => document.getElementById('details-modal').style.display = 'none';
 
-        // Crate Timer Loop (Runs every 1 second)
+        const openBtn = document.getElementById('openCrateBtn');
         setInterval(() => {
-            if (!currentUserStr) return; // Not logged in
+            if (!currentUserStr) return;
             const now = Date.now();
-            
             if (now >= playerData.nextCrateTime) {
-                openCrateBtn.disabled = false;
-                openCrateBtn.innerText = "Open Crate!";
+                openBtn.disabled = false; openBtn.innerText = "Open Crate!";
             } else {
-                openCrateBtn.disabled = true;
-                const remainingSecs = Math.ceil((playerData.nextCrateTime - now) / 1000);
-                const mins = Math.floor(remainingSecs / 60);
-                const secs = remainingSecs % 60;
-                openCrateBtn.innerText = `Ready in ${mins}:${secs.toString().padStart(2, '0')}`;
+                openBtn.disabled = true;
+                const secs = Math.ceil((playerData.nextCrateTime - now) / 1000);
+                openBtn.innerText = `Wait ${Math.floor(secs / 60)}:${(secs % 60).toString().padStart(2, '0')}`;
             }
         }, 1000);
 
-        // Open Crate Action
-        openCrateBtn.addEventListener('click', () => {
+        openBtn.addEventListener('click', async () => {
             if (Date.now() < playerData.nextCrateTime) return;
-
-            // Pick random creature
-            const randomCreature = CREATURE_DB[Math.floor(Math.random() * CREATURE_DB.length)];
+            const rand = CREATURE_DB[Math.floor(Math.random() * CREATURE_DB.length)];
             
-            if (playerData.unlocked.includes(randomCreature.id)) {
-                alert(`You opened the crate and got... ${randomCreature.name}! But it's a duplicate. Nothing happens.`);
+            if (!playerData.unlocked.includes(rand.id)) {
+                playerData.unlocked.push(rand.id);
+                alert(`Unlocked ${rand.name}!`);
             } else {
-                alert(`Awesome! You unlocked a new creature: ${randomCreature.name}!`);
-                playerData.unlocked.push(randomCreature.id);
+                alert(`Duplicate ${rand.name}. Nothing happens.`);
             }
 
-            // Set next crate time (5 minutes from now)
             playerData.nextCrateTime = Date.now() + (5 * 60 * 1000);
-            savePlayerData();
             renderInventory();
+            await savePlayerProgress(); // Sync to cloud
         });
 
-
-        // --- NAVIGATION & AUTH LOGIC ---
-        function switchScreen(screenName) {
+        // ==========================================
+        // 6. NAVIGATION
+        // ==========================================
+        function switchScreen(name) {
             Object.values(screens).forEach(s => s.style.display = 'none');
-            screens[screenName].style.display = 'block';
-            detailsModal.style.display = 'none'; // Ensure modal closes on screen change
+            screens[name].style.display = 'block';
+            document.getElementById('details-modal').style.display = 'none';
         }
-
         document.getElementById('navInventoryBtn').onclick = () => switchScreen('inventory');
         document.getElementById('navLobbyBtn').onclick = () => switchScreen('lobby');
+        switchScreen('auth');
 
-        const getFakeEmail = (user) => `${user.replace(/\s+/g, '').toLowerCase()}@monsterduel.local`;
-
-        document.getElementById('registerBtn').onclick = () => {
-            const user = document.getElementById('usernameInput').value;
-            const pass = document.getElementById('passwordInput').value;
-            if(!user) return;
-            createUserWithEmailAndPassword(auth, getFakeEmail(user), pass)
-                .catch(err => document.getElementById('errorMessage').innerText = err.message);
-        };
-
-        document.getElementById('loginBtn').onclick = () => {
-            const user = document.getElementById('usernameInput').value;
-            const pass = document.getElementById('passwordInput').value;
-            if(!user) return;
-            signInWithEmailAndPassword(auth, getFakeEmail(user), pass)
-                .catch(err => document.getElementById('errorMessage').innerText = "Invalid login.");
-        };
-
-        document.getElementById('logoutBtn').onclick = () => signOut(auth);
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUserStr = user.email.split('@')[0];
-                document.getElementById('usernameDisplay').innerText = currentUserStr;
-                loadPlayerData(); // Load their inventory when they log in
-                switchScreen('lobby');
-            } else {
-                currentUserStr = "";
-                switchScreen('auth');
-            }
-        });
     </script>
 </body>
 </html>
